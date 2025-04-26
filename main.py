@@ -426,36 +426,79 @@ class updatescore(QMainWindow):
             self.updatescorebutton.setDisabled(True)
 
     def updatescore(self):
-        score=self.scorefield.text()
-        if len(score)==0:
-            QMessageBox.information(self,"AssessmentBoy","Score field is required",)
-            return
-        else:
-            score=int(score)
-        learner_id=int(self.listcombo.currentText().split(".")[0])
-        
-        cur.execute("""SELECT subject_id FROM subject WHERE subject_abbr=%s""",(self.subjectcombo.currentText(),))
-        subject_id=cur.fetchone()[0]
-        #comparing the value entered with the total score
-        cur.execute("""SELECT total_score FROM total WHERE term_id=(SELECT term_id FROM
-        term WHERE is_active=1) AND subject_id=(SELECT subject_id FROM subject WHERE subject_abbr=%s)
-        AND grade_id=(SELECT grade_id FROM grade WHERE grade_name=%s)""",(self.subjectcombo.currentText(),
-                                                                          self.gradecombo.currentText()))
-
-        total_score=int(cur.fetchone()[0])
-        subject_score=int(score)/int(total_score)*100
-        subject_score=round(subject_score)
-        if subject_score>100:
-            QMessageBox.critical(self,"AssessmentBoy","Score cannot exceed total score")
-            return
-        cur.execute("""UPDATE score SET subject_score=%s WHERE learner_id=%s AND subject_id
-        =%s""",(subject_score,learner_id,subject_id))
-        db.commit()
-        self.scorefield.clear()
-        self.updatestatusbar.showMessage("score updated successfully",3000)
-        
-        cur.execute("""
-                    """)
+        try:
+            # Get learner ID from combo box
+            learner_id = int(self.listcombo.currentText().split(".")[0])
+            
+            # Validate score input
+            score = self.scorefield.text()  # Changed from undefined 'score' variable
+            if not score:
+                QMessageBox.information(self, "AssessmentBoy", "Score field is required")
+                return
+            
+            score = int(score)
+            
+            # Get subject ID
+            cur.execute("SELECT subject_id FROM subject WHERE subject_abbr=%s", 
+                    (self.subjectcombo.currentText(),))
+            subject_id = cur.fetchone()[0]
+            
+            # Get total score for comparison
+            cur.execute("""
+                SELECT total_score FROM total 
+                WHERE term_id = (SELECT term_id FROM term WHERE is_active=1) 
+                AND subject_id = %s
+                AND grade_id = (SELECT grade_id FROM grade WHERE grade_name=%s)
+            """, (subject_id, self.gradecombo.currentText()))
+            
+            total_result = cur.fetchone()
+            if not total_result:
+                QMessageBox.critical(self, "AssessmentBoy", "Total score not found for this subject")
+                return
+                
+            total_score = int(total_result[0])
+            
+            # Calculate percentage score
+            subject_score = round((score / total_score) * 100)
+            if subject_score > 100:
+                QMessageBox.critical(self, "AssessmentBoy", "Score cannot exceed total score")
+                return
+            
+            # Update subject score
+            cur.execute("""
+                UPDATE score 
+                SET subject_score = %s 
+                WHERE learner_id = %s 
+                AND subject_id = %s
+                AND term_id = (SELECT term_id FROM term WHERE is_active=1)
+            """, (subject_score, learner_id, subject_id))
+            
+            # Update grand total (properly calculated)
+            cur.execute("""
+                SELECT COALESCE(SUM(subject_score), 0) 
+                FROM score 
+                WHERE learner_id = %s
+                AND term_id = (SELECT term_id FROM term WHERE is_active=1)
+            """, (learner_id,))
+            
+            newgrandtotal = cur.fetchone()[0]
+            
+            cur.execute("""
+                UPDATE grand 
+                SET grandtotal = %s 
+                WHERE learner_id = %s
+                AND term_id = (SELECT term_id FROM term WHERE is_active=1)
+            """, (newgrandtotal, learner_id))
+            
+            db.commit()
+            self.scorefield.clear()
+            self.updatestatusbar.showMessage("Score updated successfully", 3000)
+            
+        except ValueError:
+            QMessageBox.critical(self, "AssessmentBoy", "Please enter valid numeric values")
+        except Exception as e:
+            db.rollback()
+            QMessageBox.critical(self, "AssessmentBoy", f"Error updating score: {str(e)}")
     
     def tohome(self):
         screen=mainwin()
@@ -471,6 +514,8 @@ class deletescore(QMainWindow):
         self.subjectdelete.clicked.connect(self.deletesubject)
         self.homebutton.clicked.connect(self.tohome)
         self.gradedelete.clicked.connect(self.deletegradescore)
+        self.subdelete.clicked.connect(self.deletelsubject)
+        self.deleteall.clicked.connect(self.deletelall)
         
     def deletesubject(self):
         resp = QMessageBox.question(
@@ -593,7 +638,135 @@ class deletescore(QMainWindow):
                 f"Failed to delete scores:\n{str(e)}",
                 QMessageBox.Ok
             )
-       
+    def deletelsubject(self):
+        try:
+            learner_id = int(self.delfield.text())
+            
+            # Get learner details
+            cur.execute("SELECT first, second, surname FROM learner WHERE learner_id=%s", (learner_id,))
+            name = cur.fetchone()
+            if not name:
+                QMessageBox.warning(self, "AssessmentBoy", "Learner not found")
+                return
+                
+            full_name = f"{name[0]} {name[1]} {name[2]}"
+            
+            # Confirmation dialog
+            resp = QMessageBox.question(
+                self,
+                "AssessmentBoy",
+                f"Are you sure you want to delete\n{self.subjectcombo.currentText()} for {full_name}?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if resp != QMessageBox.Yes:
+                return
+
+            # SOFT DELETE: Update score to 0 instead of deleting
+            cur.execute("""
+                UPDATE score 
+                SET subject_score = 0 
+                WHERE learner_id = %s
+                AND subject_id = (SELECT subject_id FROM subject WHERE subject_abbr = %s)
+                AND term_id = (SELECT term_id FROM term WHERE is_active = 1)
+            """, (learner_id, self.subjectcombo.currentText()))
+
+            # Update grand total (sum will now exclude this subject)
+            cur.execute("""
+                SELECT COALESCE(SUM(subject_score), 0) 
+                FROM score 
+                WHERE learner_id = %s 
+                AND term_id = (SELECT term_id FROM term WHERE is_active = 1)
+            """, (learner_id,))
+            new_grandtotal = cur.fetchone()[0]
+
+            cur.execute("""
+                UPDATE grand 
+                SET grandtotal = %s
+                WHERE learner_id = %s 
+                AND term_id = (SELECT term_id FROM term WHERE is_active = 1)
+            """, (new_grandtotal, learner_id))
+
+            db.commit()
+            QMessageBox.information(self, "AssessmentBoy", "Subject score delete successfully!")
+            self.delfield.clear()
+        except ValueError:
+            QMessageBox.critical(self, "AssessmentBoy", "Invalid learner ID")
+        except Exception as e:
+            db.rollback()
+            QMessageBox.critical(self, "AssessmentBoy", f"Error: {str(e)}")
+            
+#deleting all learning areas for a learner
+    def deletelall(self):
+        try:
+            # Get learner ID from input field
+            learner_id = int(self.delfield.text())
+            
+            # Access learner details
+            cur.execute("""
+                SELECT first, second, surname FROM learner
+                WHERE learner_id = %s
+            """, (learner_id,))
+            name = cur.fetchone()
+            
+            if not name:
+                QMessageBox.warning(self, "AssessmentBoy", "Learner not found")
+                return
+                
+            full_name = f"{name[0]} {name[1]} {name[2]}"
+            
+            # Confirmation dialog
+            resp = QMessageBox.question(
+                self,
+                "AssessmentBoy",
+                f"Are you sure you want to CLEAR ALL\nSCORES for {full_name}?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No  # Default to 'No' for safety
+            )
+            
+            if resp != QMessageBox.Yes:
+                return
+
+            # Get active term
+            cur.execute("SELECT term_id FROM term WHERE is_active = 1")
+            term_id = cur.fetchone()[0]
+
+            # Soft delete all subject scores (set to 0)
+            cur.execute("""
+                UPDATE score 
+                SET subject_score = 0 
+                WHERE learner_id = %s
+                AND term_id = %s
+            """, (learner_id, term_id))
+
+            # Update grand total to 0
+            cur.execute("""
+                UPDATE grand 
+                SET grandtotal = 0
+                WHERE learner_id = %s 
+                AND term_id = %s
+            """, (learner_id, term_id))
+
+            db.commit()
+            
+            # Refresh UI if needed
+            self.delfield.clear()
+            QMessageBox.information(
+                self, 
+                "AssessmentBoy", 
+                f"All scores for {full_name} cleared\nsuccessfully!",
+                QMessageBox.Ok
+            )
+            
+        except ValueError:
+            QMessageBox.critical(self, "AssessmentBoy", "Please enter a valid learner ID")
+        except Exception as e:
+            db.rollback()
+            QMessageBox.critical(
+                self, 
+                "AssessmentBoy", 
+                f"Error clearing scores:\n{str(e)}"
+            )
+        
     def tohome(self):
         screen=mainwin()
         widget.addWidget(screen)

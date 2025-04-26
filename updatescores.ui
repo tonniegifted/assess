@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>480</width>
+    <height>361</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QLabel" name="label">
+    <property name="geometry">
+     <rect>
+      <x>0</x>
+      <y>0</y>
+      <width>480</width>
+      <height>25</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size:13px;
+color:blue;
+font-weight:bold;
+</string>
+    </property>
+    <property name="text">
+     <string>Update Scores</string>
+    </property>
+    <property name="scaledContents">
+     <bool>true</bool>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignCenter</set>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="subjectcombo">
+    <property name="geometry">
+     <rect>
+      <x>225</x>
+      <y>59</y>
+      <width>53</width>
+      <height>21</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size:9px</string>
+    </property>
+    <item>
+     <property name="text">
+      <string>ENG</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>MATHS</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>KISW</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>INT</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>SST</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>PTC</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>AGN</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>CAS</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>CRE</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QLabel" name="totallabel">
+    <property name="geometry">
+     <rect>
+      <x>230</x>
+      <y>40</y>
+      <width>62</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>40</width>
+      <height>20</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size:10px;
+font-weight:bold</string>
+    </property>
+    <property name="text">
+     <string>Subject</string>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="gradecombo">
+    <property name="geometry">
+     <rect>
+      <x>173</x>
+      <y>59</y>
+      <width>48</width>
+      <height>19</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size:9px</string>
+    </property>
+    <item>
+     <property name="text">
+      <string>Seven</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Eight</string>
+     </property>
+    </item>
+    <item>
+     <property name="text">
+      <string>Nine</string>
+     </property>
+    </item>
+   </widget>
+   <widget class="QPushButton" name="updatescorebutton">
+    <property name="geometry">
+     <rect>
+      <x>140</x>
+      <y>310</y>
+      <width>211</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background:rgb(32, 151, 255);
+color: rgb(255, 255, 255);
+</string>
+    </property>
+    <property name="text">
+     <string>Save Changes</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_2">
+    <property name="geometry">
+     <rect>
+      <x>180</x>
+      <y>40</y>
+      <width>40</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>40</width>
+      <height>20</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size:10px;
+font-weight:bold</string>
+    </property>
+    <property name="text">
+     <string>Grade</string>
+    </property>
+   </widget>
+   <widget class="QToolButton" name="homebutton">
+    <property name="geometry">
+     <rect>
+      <x>60</x>
+      <y>40</y>
+      <width>41</width>
+      <height>41</height>
+     </rect>
+    </property>
+    <property name="statusTip">
+     <string>To Homepage</string>
+    </property>
+    <property name="text">
+     <string>...</string>
+    </property>
+    <property name="icon">
+     <iconset>
+      <normaloff>../../AI/home icon.png</normaloff>../../AI/home icon.png</iconset>
+    </property>
+    <property name="iconSize">
+     <size>
+      <width>40</width>
+      <height>40</height>
+     </size>
+    </property>
+    <property name="popupMode">
+     <enum>QToolButton::DelayedPopup</enum>
+    </property>
+   </widget>
+   <widget class="QComboBox" name="listcombo">
+    <property name="geometry">
+     <rect>
+      <x>80</x>
+      <y>130</y>
+      <width>211</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="statusTip">
+     <string>Select a learner</string>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size:9px</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="labeltotal">
+    <property name="geometry">
+     <rect>
+      <x>312</x>
+      <y>110</y>
+      <width>50</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="minimumSize">
+     <size>
+      <width>40</width>
+      <height>20</height>
+     </size>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">font-size:10px
+</string>
+    </property>
+    <property name="text">
+     <string>Score</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="scorefield">
+    <property name="geometry">
+     <rect>
+      <x>300</x>
+      <y>130</y>
+      <width>71</width>
+      <height>19</height>
+     </rect>
+    </property>
+    <property name="maximumSize">
+     <size>
+      <width>16777215</width>
+      <height>16777191</height>
+     </size>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="totalbutton">
+    <property name="geometry">
+     <rect>
+      <x>290</x>
+      <y>60</y>
+      <width>56</width>
+      <height>17</height>
+     </rect>
+    </property>
+    <property name="styleSheet">
+     <string notr="true">background:rgb(46, 140, 255);
+color: rgb(255, 255, 255);
+</string>
+    </property>
+    <property name="text">
+     <string>Load</string>
+    </property>
+   </widget>
+  </widget>
+  <widget class="QStatusBar" name="updatestatusbar">
+   <property name="styleSheet">
+    <string notr="true">font-size:10px
+</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
