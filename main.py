@@ -459,10 +459,31 @@ class updatescore(QMainWindow):
         self.totalbutton.clicked.connect(self.loadlearnerlist)
         # self.grade = self.gradecombo.currentText()
         # self.subject = self.subjectcombo.currentText()
+        self.readschool()
         self.gradecombo.currentTextChanged.connect(self.loadlearnerlist)
         self.listcombo.currentTextChanged.connect(self.loadlearnerscore)
         self.updatescorebutton.clicked.connect(self.updatescore)
         self.homebutton.clicked.connect(self.tohome)
+        
+    def readschool(self):
+        school_path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text"
+        with open(school_path,"r") as file:
+            school=file.read()
+            # self.level_label.setText(school)
+        if school =="Junior School":
+            grades=['Seven','Eight','Nine']
+            subjects=['MATHS','ENG','KISW','INT','SST','PTC','AGN','CRE','CAS']
+        elif school=="Upper Primary":
+            grades=['Four','Five','Six']
+            subjects=['MATHS','ENG','KISW','SCIE','SST','AGN','CRE','C/A']
+        else:
+            grades=['One','Two','Three']
+            subjects=['MA/ACT','EN/ACT','KI/ACT','ENV/ACT','RE/ACT','C/ACT']
+        
+        self.gradecombo.addItems(grades)
+        self.subjectcombo.addItems(subjects)
+        
+        self.schoollabel.setText(school)
 
     def loadlearnerlist(self):
         grade = self.gradecombo.currentText()
