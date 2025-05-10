@@ -27,7 +27,7 @@ db = mysql.connector.connect(
     host="localhost",
     user="root",
     password="print",
-    database="remedial",
+    database="assess",
     buffered=True
 )
 cur = db.cursor()
@@ -54,7 +54,15 @@ class mainwin(QMainWindow):
         self.deletebutton.clicked.connect(self.loaddeletescore)
         self.adminbutton.clicked.connect(self.loadadminpanel)
         self.analysisbutton.clicked.connect(self.loadanalysis)
+        self.managelearner.clicked.connect(self.loadsavelearner)
+        self.setschool()
         
+        
+    def setschool(self):
+        school_path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text"
+        with open(school_path,"r") as file:
+            school=file.read()
+            self.level_label.setText(school)
 
     def loadschoolname(self):
         path="D:/TONNIEGIFTED/Documents/programs/Remedial2/name.txt"
@@ -63,14 +71,21 @@ class mainwin(QMainWindow):
             self.schoolnamelabel.setText(schoolname)
 
     def loadterm(self):
-        cur.execute("SELECT selected_term FROM term WHERE is_active=1")
-        term=cur.fetchone()[0]
-        self.termlabel.setText(term)
+            cur.execute("""SELECT selected_term,selected_year
+                        FROM term WHERE is_active=1""")
+            term=cur.fetchone()
+            term_year=f"Term {term[0]}, {term[1]}"
+            self.termlabel.setText(term_year) 
 
     #Loading windows/screens
     def loadenterscore(self):
         enterscorewin=enterscore()
         widget.addWidget(enterscorewin)
+        widget.setCurrentIndex(widget.currentIndex()+1)
+        
+    def loadsavelearner(self):
+        savelearnerwin=savelearner()
+        widget.addWidget(savelearnerwin)
         widget.setCurrentIndex(widget.currentIndex()+1)
 
     def loadupdatescore(self):
@@ -122,11 +137,10 @@ class enterscore(QMainWindow):
         loadUi(resource_path("enterscores.ui"), self)
 
         # Initialize grade and subject
-        self.update_grade_subject()
-        # Load initial data
-        self.hidetotalscore()
-        self.displayentered()
-        self.loadlearners(self.grade)
+        
+        
+        
+        self.readschool()
 
         # Connect signals
         self.gradecombo.currentTextChanged.connect(self.update_grade_subject)
@@ -137,7 +151,31 @@ class enterscore(QMainWindow):
         self.subjectcombo.currentTextChanged.connect(self.hidetotalscore)
         self.enterscoresbutton.clicked.connect(self.savescores)
         self.homebutton.clicked.connect(self.homepage)
-    
+    #display grades     
+    def readschool(self):
+        school_path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text"
+        with open(school_path,"r") as file:
+            school=file.read()
+            # self.level_label.setText(school)
+        if school =="Junior School":
+            grades=['Seven','Eight','Nine']
+            subjects=['MATHS','ENG','KISW','INT','SST','PTC','AGN','CRE','CAS']
+        elif school=="Upper Primary":
+            grades=['Four','Five','Six']
+            subjects=['MATHS','ENG','KISW','SCIE','SST','AGN','CRE','C/A']
+        else:
+            grades=['One','Two','Three']
+            subjects=['MA/ACT','EN/ACT','KI/ACT','ENV/ACT','RE/ACT','C/ACT']
+            
+        self.gradecombo.addItems(grades)
+        self.subjectcombo.addItems(subjects)
+        self.update_grade_subject()
+        self.displayentered()
+        self.loadlearners(self.grade)
+        self.hidetotalscore()
+        self.displayentered()
+        # Load initial data
+       
         
     def displayentered(self):
         try:
@@ -151,7 +189,24 @@ class enterscore(QMainWindow):
             cur.execute("""SELECT term_id FROM term WHERE is_active = 1""")
             term_id = cur.fetchone()[0]
             
-            subject_ids = [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,)]
+            # Determine school level and set appropriate subject_ids
+            school_path = "D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text"
+            with open(school_path, "r") as file:
+                school = file.read().strip()
+            
+            if school == 'Lower Primary':
+                subject_ids = [(10,), (11,), (12,), (13,), (14,), (15,)]
+                required_subjects = {"KI/ACT", "EN/ACT", "MA/ACT", "RE/ACT", "ENV/ACT", "C/ACT"}
+            elif school == 'Upper Primary':
+                subject_ids = [(1,), (2,), (3,), (5,), (6,), (7,), (16,), (17,)]
+                required_subjects = {"MATHS", "ENG", "KISW", "SST", "AGN", "CRE", "SCIE", "C/A"}
+            elif school == 'Junior School':
+                subject_ids = [(1,), (2,), (3,), (4,), (5,), (6,), (7,), (8,), (9,)]
+                required_subjects = {"MATHS", "ENG", "KISW", "INT", "SST", "AGN", "CRE", "CAS", "PTC"}
+            else:
+                subject_ids = []
+                required_subjects = set()
+            
             output_text = ""
 
             for subject_id in subject_ids:
@@ -169,15 +224,13 @@ class enterscore(QMainWindow):
             output_text = output_text.rstrip(" | ")
             self.enteredscores.setText(output_text)
 
-            # Add the readyforanalysis check
-            required_subjects = {"MATHS", "ENG", "KISW", "SST", "INT", "AGN", "CRE", "CAS", "PTC"}
+            # Add the readyforanalysis check with school-specific required subjects
             if all(subject in output_text for subject in required_subjects):
                 self.enteredscores.clear()
                 self.enteredscores.setText(f"Grade scores ready for analysis")
                 self.enteredscores.setStyleSheet("color:red; font-size:9px")
         except Exception as e:
             QMessageBox.critical(self,"AssessmentBoy",f"{e}")
-
     def update_grade_subject(self):
         """Update grade and subject when combobox changes."""
         self.grade = self.gradecombo.currentText()
@@ -811,14 +864,35 @@ class adminpanel(QMainWindow):
         # self.testcombo.currentTextChanged.connect(self.saveassessment)
         self.adminchange.clicked.connect(self.saveassessment)
         self.datesave.clicked.connect(self.openclosedate)
-    
+        self.saveschool.clicked.connect(self.selectschool)
+        self.loadterm()
+        
+        
+    def selectschool(self):
+        school_path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text"
+        school=self.setschoolcombo.currentText()
+        with open(school_path,"w") as file:
+            file.write(school)
+        self.adminstatusbar.showMessage(f"{school} saved successfully!",3000)
     def saveassessment(self):
         test=self.testcombo.currentText()
         path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/term.text"
+        #selected term
         with open(path,"w")as file:
             file.write(test)
+        cur.execute("""UPDATE term SET is_active=0
+                    WHERE is_active=1""")
+        cur.execute("""UPDATE term SET is_active=1 
+                    WHERE selected_term=%s AND
+                    selected_year=%s""",
+                    (self.termcombo.currentText(),
+                    self.yearcombo.currentText()))
+        db.commit()
+        # cur.execute("SELECT term_id FROM term WHERE is_active=1")
+        # for items in cur.fetchall():
+        #     print(items[0])
         self.adminstatusbar.showMessage("Changes Saved Successfully",3000)
-      
+        self.loadterm()
         
     def tohome(self):
         screen=mainwin()
@@ -841,7 +915,165 @@ class adminpanel(QMainWindow):
             file.write(opening_date)
         
         self.adminstatusbar.showMessage("Dates saved successfully",3000)
+    
+    def loadterm(self):
+            cur.execute("""SELECT selected_term,selected_year
+                        FROM term WHERE is_active=1""")
+            term=cur.fetchone()
+            term_year=f"Term {term[0]}, {term[1]}"
+            self.termlabel.setText(term_year) 
+            #loading test
+            path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/term.text"
+            with open(path,"r")as file:
+                test=file.read()
+            self.testlabel.setText(f"{test} Assessment")
+            
+#adding learners
+class savelearner(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        loadUi(resource_path("enterlearner.ui"), self)
+        self.homebutton.clicked.connect(self.tohome)
+        self.savebutton.clicked.connect(self.savelearner)
+        self.gradecombo.currentTextChanged.connect(self.loadlearners)
+        self.loadlearners()
+        self.updatebutton.clicked.connect(self.updatelearner)
+        self.deletebutton.clicked.connect(self.deletelearner)
+        self.setTabOrder(self.firstfield, self.secondfield)
+        self.setTabOrder(self.secondfield, self.surnamefield)
+        
+    def loadlearners(self):
+        self.learnercombo.clear()  # Clear existing items first
+        
+        cur.execute("""SELECT learner_id, first, second, surname
+                    FROM learner WHERE grade=%s""",
+                    (self.gradecombo.currentText(),))
+        
+        learners = cur.fetchall()
+        
+        for learner_id, first, second, surname in learners:
+            learner = f"{learner_id}. {first} {second}"
+            if surname:  # Only add surname if it exists
+                learner += f" {surname}"
+            self.learnercombo.addItem(learner)
+            
+    def updatelearner(self):
+        first=self.firstfield.text().strip().title()
+        second=self.secondfield.text().strip().title()
+        surname=self.surnamefield.text().strip().title()
+        grade= self.gradecombo.currentText()
+        learner_id=int(self.learnercombo.currentText().split(".")[0])
+        learner=self.learnercombo.currentText().split(".")[1]
+        # learner=(f"{first} {second} {surname}")
+        if all([first,second,grade,learner_id]):
+            reply = QMessageBox.question(
+                    self,
+                    "AssessmentBoy",
+                    f"Do you want to update\n{learner} details?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+            if reply==QMessageBox.Yes:
+                cur.execute("""UPDATE learner SET first=%s,second=%s
+                            ,surname=%s,grade=%s WHERE learner_id=%s""",
+                            (first,second,surname,grade,learner_id))
+                db.commit()
+                self.learnerstatus.showMessage("Learner's details updated successfully!")
+                self.loadlearners()
+                self.idfield.clear()
+                self.firstfield.clear()
+                self.secondfield.clear()
+                self.surnamefield.clear()
+                self.loadlearners()
+        else:
+            QMessageBox.warning(self,"AssessmentBoy","Input all the necessary fields")
+            return
+        
+    def savelearner(self):
+        # Get all field values (strip whitespace)
+        id_text = self.idfield.text().strip()
+        first = self.firstfield.text().strip().title()
+        second = self.secondfield.text().strip().title()
+        surname = self.surnamefield.text().strip().title()  # Optional (can be empty)
+        grade = self.gradecombo.currentText()
 
+        # Validate REQUIRED fields (ID, first, second, grade)
+        if not all([id_text, first, second, grade]):  # surname not checked here
+            QMessageBox.critical(self,"AssessmentBoy"," ID, First, Second, and Grade are required")
+            return
+
+        try:
+            learner_id = int(id_text)  # Convert ID to integer
+        except ValueError:
+            self.learnerstatus.showMessage("Error: ID must be a number", 3000)
+            return
+
+        try:
+            # Check if learner exists
+            cur.execute("SELECT first, second, surname FROM learner WHERE learner_id = %s", (learner_id,))
+            existing = cur.fetchone()
+
+            if existing:  # Learner exists → UPDATE after confirmation
+                existing_name = f"{existing[0]} {existing[1]} {existing[2] if existing[2] else ''}".strip()
+                reply = QMessageBox.question(
+                    self,
+                    "AssessmentBoy",
+                    f"ID {learner_id} already exists do you want\nto overwrite{existing_name}\ndetails?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+
+                if reply == QMessageBox.Yes:
+                    cur.execute("""
+                        UPDATE learner 
+                        SET first = %s, second = %s, surname = %s, grade = %s
+                        WHERE learner_id = %s
+                    """, (first, second, surname if surname else None, grade, learner_id))  # Handle NULL surname
+                    self.learnerstatus.showMessage("Learner updated successfully!", 3000)
+                    self.idfield.clear()
+                    self.firstfield.clear()
+                    self.secondfield.clear()
+                    self.surnamefield.clear()
+                    self.loadlearners()
+                    
+            else:  # New learner → INSERT
+                cur.execute("""
+                    INSERT INTO learner 
+                    (learner_id, first, second, surname, grade)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (learner_id, first, second, surname if surname else None, grade))  # Handle NULL surname
+                self.learnerstatus.showMessage("New learner added successfully!", 3000)
+                self.idfield.clear()
+                self.firstfield.clear()
+                self.secondfield.clear()
+                self.surnamefield.clear()
+                self.loadlearners()
+            db.commit()
+
+        except Exception as e:
+            db.rollback()
+            self.learnerstatus.showMessage(f"Database error: {str(e)}", 3000)
+            
+    def deletelearner(self):
+        learner_id=int(self.learnercombo.currentText().split(".")[0])
+        learner=self.learnercombo.currentText().split(".")[1]
+        reply = QMessageBox.question(
+                self,
+                "AssessmentBoy",
+                f"Do you want to update\n{learner} details?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+        if reply==QMessageBox.Yes:
+            cur.execute("SET FOREIGN_KEY_CHECKS=0")
+            cur.execute("""DELETE FROM learner WHERE learner_id=%s""",(learner_id,))
+            self.learnerstatus.showMessage("Learner Delete successfully!",3000)
+            self.loadlearners()
+            cur.execute("SET FOREIGN_KEY_CHECKS=1")
+            db.commit()
+         
+    def tohome(self):
+        screen=mainwin()
+        widget.addWidget(screen)
+        widget.addWidget(screen)
+        widget.setCurrentIndex(widget.currentIndex()+1)
 class analysis(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -851,15 +1083,31 @@ class analysis(QMainWindow):
         self.generatebutton.clicked.connect(self.on_generate_reports_clicked)
         self.loadtest()
         self.loadterm()
+        self.readschool()
         
         # Database configuration
         self.DB_CONFIG = {
             'host': 'localhost',
             'user': 'root',
             'password': 'print',
-            'database': 'remedial'
+            'database': 'assess'
         }
 
+     #display grades     
+    def readschool(self):
+        school_path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text"
+        with open(school_path,"r") as file:
+            school=file.read()
+            # self.level_label.setText(school)
+        if school =="Junior School":
+            grades=['Seven','Eight','Nine']
+        elif school=="Upper Primary":
+            grades=['Four','Five','Six']
+        else:
+            grades=['One','Two','Three']   
+            
+        self.gradecombo.addItems(grades)
+        self.schoollabel.setText(school)
     def tohome(self):
         screen = mainwin()
         widget.addWidget(screen)
@@ -987,369 +1235,579 @@ class analysis(QMainWindow):
         return cell
 
     def generate_assessment_report(self):
-        """Generate the complete assessment report."""
+        """Generate assessment report with direct cell styling (no NamedStyle)."""
         try:
-            # Create workbook
+            # 1. Get school level
+            with open("D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text", "r") as f:
+                school = f.read().strip()
+
+            # 2. Create workbook with print settings
             wb = Workbook()
             ws = wb.active
             ws.title = "Assessment Analysis"
-            grade=f"grade {self.gradecombo.currentText()} {self.testlabel.text()}, {self.termlabel.text()}".upper()
-            # ===== HEADER SECTION =====
-            self.create_cell(ws, 1, 1, "IGAMBA JUNIOR SCHOOL", font_size=16, bold=True, merge=5, center=True)
-            self.create_cell(ws, 2, 1, f"{grade}", font_size=14, bold=True, merge=5, center=True)
-            self.create_cell(ws, 3, 1, "ASSESSMENT ANALYSIS", font_size=12, bold=True, merge=5, center=True)
             
-            # ===== DATA TABLE =====
+            # Configure print settings
+            ws.print_options.gridLines = True
+            ws.sheet_view.showGridLines = True
+            ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+            ws.page_setup.paperSize = ws.PAPERSIZE_A4
+            ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.75, bottom=1.0)
+            ws.print_options.horizontalCentered = True
+
+            # 3. Write report headers with direct styling
+            ws.merge_cells('A1:Y1')
+            ws['A1'] = "IGAMBA JUNIOR AND PRIMARY SCHOOL"
+            ws['A1'].font = Font(bold=True, size=14)
+            ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            grade_info = f"GRADE {self.gradecombo.currentText()} {self.testlabel.text()}, {self.termlabel.text()}"
+            ws.merge_cells('A2:Y2')
+            ws['A2'] = grade_info
+            ws['A2'].font = Font(bold=True, size=11)
+            ws['A2'].alignment = Alignment(horizontal='center', vertical='center')
+            
+            ws.merge_cells('A3:Y3')
+            ws['A3'] = "ASSESSMENT ANALYSIS"
+            ws['A3'].font = Font(bold=True, size=11)
+            ws['A3'].alignment = Alignment(horizontal='center', vertical='center')
+
+            # 4. Get and validate data
             learners, subjects = self.fetch_learner_data()
             if not learners:
                 QMessageBox.warning(self, "Warning", "No learner data found in database")
                 return
-            
+
             deviations = self.calculate_deviations()
-            
-            # Headers
-            headers = [
-                "ADM", "FULLNAME", "POS",
-                "ENG", "EX", "MATHS", "EX", "KISW", "EX", "INT", "EX", 
-                "SST", "EX", "AGN", "EX", "PTC", "EX", "CAS", "EX", "CRE", "EX",
-                "GT", "EX", "DEV"
-            ]
-            
-            # Write headers (row 5) - centered
+
+            # 5. Configure columns based on school level
+            if school == 'Lower Primary':
+                headers = ["ADM", "FULLNAME", "POS"] + \
+                        sum([[subj, "EX"] for subj in ["EN/ACT", "MA/ACT", "KI/ACT", "RE/ACT", "ENV/ACT", "C/ACT"]], []) + \
+                        ["GT", "EX", "DEV"]
+                subject_cols = ["EN/ACT", "MA/ACT", "KI/ACT", "RE/ACT", "ENV/ACT", "C/ACT"]
+                widths = {'A':5, 'B':25, 'C':5, 'D':5, 'E':4, 'F':5, 'G':4, 'H':5, 'I':4,
+                        'J':5, 'K':4, 'L':5, 'M':4, 'N':5, 'O':4, 'P':6, 'Q':4, 'R':6}
+            elif school == 'Upper Primary':
+                headers = ["ADM", "FULLNAME", "POS"] + \
+                        sum([[subj, "EX"] for subj in ["ENG", "MATHS", "KISW", "SST", "AGN", "SCIE", "C/A", "CRE"]], []) + \
+                        ["GT", "EX", "DEV"]
+                subject_cols = ["ENG", "MATHS", "KISW", "SST", "AGN", "SCIE", "C/A", "CRE"]
+                widths = {'A':5, 'B':25, 'C':5, 'D':5, 'E':4, 'F':6, 'G':4, 'H':5, 'I':4,
+                        'J':5, 'K':4, 'L':5, 'M':4, 'N':5, 'O':4, 'P':5, 'Q':4, 'R':5, 'S':4,
+                        'T':6, 'U':4, 'V':6}
+            else:  # Junior School
+                headers = ["ADM", "FULLNAME", "POS"] + \
+                        sum([[subj, "EX"] for subj in ["ENG", "MATHS", "KISW", "INT", "SST", "AGN", "PTC", "CAS", "CRE"]], []) + \
+                        ["GT", "EX", "DEV"]
+                subject_cols = ["ENG", "MATHS", "KISW", "INT", "SST", "AGN", "PTC", "CAS", "CRE"]
+                widths = {'A':5, 'B':25, 'C':5, 'D':5, 'E':4, 'F':6, 'G':4, 'H':5, 'I':4,
+                        'J':5, 'K':4, 'L':5, 'M':4, 'N':5, 'O':4, 'P':5, 'Q':4, 'R':5, 'S':4,
+                        'T':5, 'U':4, 'V':6, 'W':4, 'X':6}
+
+            # 6. Write column headers with direct styling
             for col_num, header in enumerate(headers, 1):
-                self.create_cell(ws, 5, col_num, header, font_size=10, bold=True, fill="DDDDDD", center=True)
+                cell = ws.cell(row=5, column=col_num, value=header)
+                cell.font = Font(bold=True)
+                cell.fill = PatternFill("solid", fgColor="DDDDDD")
+                cell.alignment = Alignment(horizontal='center')
+                cell.border = Border(bottom=Side(style='medium'))
+
+            # 7. Write student data with direct styling
+            data_border = Border(
+                left=Side(style='thin'), 
+                right=Side(style='thin'),
+                top=Side(style='thin'),
+                bottom=Side(style='thin')
+            )
             
-            # Write data rows - left-aligned
             for row_num, learner in enumerate(learners, 6):
                 # Basic info
-                self.create_cell(ws, row_num, 1, learner["adm"])
-                self.create_cell(ws, row_num, 2, learner["name"])
-                self.create_cell(ws, row_num, 3, learner["pos"])
+                for col, val in [(1, learner["adm"]), (2, learner["name"]), (3, learner["pos"])]:
+                    cell = ws.cell(row=row_num, column=col, value=val)
+                    cell.border = data_border
                 
-                # Subject data
+                # Subject scores
                 col = 4
-                for subject in ["ENG", "MATHS", "KISW", "INT", "SST", "AGN", "PTC", "CAS", "CRE"]:
+                for subject in subject_cols:
                     score, ex = subjects.get(learner["id"], {}).get(subject, ("", ""))
-                    self.create_cell(ws, row_num, col, score)
-                    self.create_cell(ws, row_num, col+1, ex)
+                    ws.cell(row=row_num, column=col, value=score).border = data_border
+                    ws.cell(row=row_num, column=col+1, value=ex).border = data_border
                     col += 2
                 
-                # Grand total and deviation
-                self.create_cell(ws, row_num, 22, learner["gt"])
-                self.create_cell(ws, row_num, 23, learner["gt_ex"])
-                self.create_cell(ws, row_num, 24, deviations.get(learner["id"], 0))
-            
-            # ===== FOOTER =====
-            footer_row = ws.max_row + 2
-            self.create_cell(ws, footer_row, 1, f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", merge=len(headers), center=True)
-            
-            # ===== PAGE SETUP =====
-            ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
-            ws.page_setup.paperSize = ws.PAPERSIZE_A4
-            ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.75, bottom=1.0)
-            
-            # Set column widths
-            column_widths = {
-                'A': 10,  # ADM
-                'B': 25,  # FULLNAME
-                'C': 5,   # POS
-                'D': 5, 'E': 4,   # ENG
-                'F': 6, 'G': 4,   # MATHS
-                'H': 5, 'I': 4,   # KISW
-                'J': 5, 'K': 4,   # INT
-                'L': 5, 'M': 4,   # SST
-                'N': 5, 'O': 4,   # AGN
-                'P': 5, 'Q': 4,   # PTC
-                'R': 5, 'S': 4,   # CAS
-                'T': 5, 'U': 4,   # CRE
-                'V': 6, 'W': 4,   # GT
-                'X': 6            # DEV
-            }
-            for col, width in column_widths.items():
+                # Totals
+                ws.cell(row=row_num, column=col, value=learner["gt"]).border = data_border
+                ws.cell(row=row_num, column=col+1, value=learner["gt_ex"]).border = data_border
+                ws.cell(row=row_num, column=col+2, value=deviations.get(learner["id"], 0)).border = data_border
+
+            # 8. Set column widths
+            for col, width in widths.items():
                 ws.column_dimensions[col].width = width
-            
-            # Save the file
-            filename = f"Assessment_Analysis_{self.gradecombo.currentText()},{self.termlabel.text()}.xlsx"
-            wb.save(filename)
-            
-            QMessageBox.information(self, "Success", f"Report successfully generated:\n{filename}")
-            
-        except mysql.connector.Error as err:
-            QMessageBox.critical(self, "Database Error", f"Database error occurred: {err}")
-        except PermissionError:
-            QMessageBox.critical(self, "File Error", "Permission denied - cannot save the Excel file")
+
+            # 9. Add timestamp footer
+            footer_row = ws.max_row + 2
+            timestamp = f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            ws.merge_cells(start_row=footer_row, start_column=1, end_row=footer_row, end_column=len(headers))
+            footer_cell = ws.cell(row=footer_row, column=1, value=timestamp)
+            footer_cell.alignment = Alignment(horizontal='center')
+            footer_cell.font = Font(size=9, italic=True)
+
+            # 10. Save with file dialog
+            default_name = f"Assessment_{self.gradecombo.currentText()} {self.termlabel.text()}.xlsx"
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Assessment Report",
+                f"D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/{default_name}",
+                "Excel Files (*.xlsx)"
+            )
+
+            if file_path:
+                if not file_path.endswith('.xlsx'):
+                    file_path += '.xlsx'
+                    
+                if os.path.exists(file_path):
+                    reply = QMessageBox.question(
+                        self,
+                        "Overwrite File?",
+                        f"'{os.path.basename(file_path)}' already exists. Overwrite?",
+                        QMessageBox.Yes | QMessageBox.No
+                    )
+                    if reply != QMessageBox.Yes:
+                        return
+
+                try:
+                    wb.save(file_path)
+                    QMessageBox.information(
+                        self,
+                        "Success",
+                        f"Analysis saved successfully!"
+                    )
+                except PermissionError:
+                    QMessageBox.critical(
+                        self,
+                        "Error",
+                        "Permission denied. Please close the file if it's open elsewhere."
+                    )
+                except Exception as e:
+                    QMessageBox.critical(
+                        self,
+                        "Error",
+                        f"Failed to save file: {str(e)}"
+                    )
+
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"An unexpected error occurred: {str(e)}")
-            
+            QMessageBox.critical(self, "Error", f"An unexpected error occurred:\n{str(e)}")
     def loadtest(self):
         path="D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/term.text"
         with open(path,"r")as file:
             test=file.read()
-        self.testlabel.setText(test)
+        self.testlabel.setText(f"{test} Assessment")
         
     def loadterm(self):
-            cur.execute("SELECT selected_term FROM term WHERE is_active=1")
-            term=cur.fetchone()[0]
-            self.termlabel.setText(term) 
+            cur.execute("""SELECT selected_term,selected_year
+                        FROM term WHERE is_active=1""")
+            term=cur.fetchone()
+            term_year=f"Term {term[0]}, {term[1]}"
+            self.termlabel.setText(term_year) 
+            # self.termlabel.setStyleSheet('color:blue',)
             
     #generating report sheets
     #  self.generate_button.clicked.connect(self.on_generate_reports_clicked)
 
     def on_generate_reports_clicked(self):
         """This method will be called when the button is clicked"""
-        # Prepare your parameters - you can get these from UI inputs if needed
-        #school name
-        school_path="D:/TONNIEGIFTED/Documents/programs/Remedial2/name.txt"
-        #assessing closing and opening date
-        path="D:/TONNIEGIFTED/Documents/programs/Remedial2/closingdate.txt"
-        with open(path,"r") as file:
-            closingdate=file.read()
-        path="D:/TONNIEGIFTED/Documents/programs/Remedial2/openingdate.txt"
-        with open(path,"r") as file:
-            openingdate=file.read()
-        with open(school_path,"r") as file:
-            school_name=file.read()
-        school_info = {
-            'name': f'{school_name}'.upper(),
-            'address': 'P.O. BOX 32-01003 GITUAMBA',
-            'email': 'igambacomprehensive@gmail.com',
-            'closing_date': f'{closingdate}',
-            'opening_date': f'{openingdate}'
-        }
-        logo_path = "D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/LOGO FINALE.png"
-        #getting grade 
-        cur.execute("""SELECT grade_id FROM grade WHERE grade_name=%s
-                    """,(self.gradecombo.currentText(),))
-        grade_id = cur.fetchone()[0]
+        # Prepare parameters
+        school_path = "D:/TONNIEGIFTED/Documents/programs/Remedial2/name.txt"
+        path = "D:/TONNIEGIFTED/Documents/programs/Remedial2/closingdate.txt"
+        
         try:
-            # Call your existing function exactly as it is
+            # Read school info
+            with open(path, "r") as file:
+                closingdate = file.read()
+            with open("D:/TONNIEGIFTED/Documents/programs/Remedial2/openingdate.txt", "r") as file:
+                openingdate = file.read()
+            with open(school_path, "r") as file:
+                school_name = file.read()
+                
+            school_info = {
+                'name': f'{school_name}'.upper(),
+                'address': 'P.O. BOX 32-01003 GITUAMBA',
+                'email': 'igambacomprehensive@gmail.com',
+                'closing_date': closingdate,
+                'opening_date': openingdate
+            }
+            
+            logo_path = "D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/LOGO FINALE.png"
+            
+            # Get grade ID
+            cur.execute("SELECT grade_id FROM grade WHERE grade_name=%s",
+                    (self.gradecombo.currentText(),))
+            grade_id = cur.fetchone()[0]
+            
+            # Generate reports
             generate_report_books(
                 grade_id=grade_id,
                 logo_path=logo_path,
                 school_info=school_info
             )
             
-            # Show success message
-            QMessageBox.information(
-                self, 
-                "AssessmentBoy", 
-                "Report sheets generated successfully"
+            # QMessageBox.information(
+            #     self, 
+            #     "Success", 
+            #     "Report sheets generated successfully"
+            # )
+            
+        except FileNotFoundError as e:
+            QMessageBox.critical(
+                self,
+                "File Error",
+                f"Could not read required file: {str(e)}"
             )
-        
         except mysql.connector.Error as db_error:
             QMessageBox.critical(
                 self, 
                 "Database Error", 
                 f"Database operation failed: {str(db_error)}"
             )
-        
         except Exception as e:
             QMessageBox.critical(
                 self, 
                 "Error", 
                 f"Failed to generate reports: {str(e)}"
-            )   
-                
+            )
 def generate_report_books(grade_id, logo_path, school_info):
     """
     Generate professional one-page-per-learner PDF report in a single document.
+    Includes proper error handling and validation for all cases.
     """
-    # Database connection
-    db = mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="print",
-        database="remedial"
-    )
-    cur = db.cursor()
-    
-    # Get active term
-    cur.execute("SELECT term_id, selected_term FROM term WHERE is_active=1")
-    term_data = cur.fetchone()
-    term_id = term_data[0]
-    selected_term = term_data[1]
-    
-    # Get all learners with their grand totals
-    cur.execute("""SELECT l.learner_id, CONCAT(l.first,' ',l.second,' ',l.surname), g.grandtotal
-                FROM learner l JOIN grand g ON l.learner_id=g.learner_id
-                WHERE g.grade_id=%s AND g.term_id=%s
-                ORDER BY g.grandtotal DESC""", 
-                (grade_id, term_id))
-    
-    learners_data = cur.fetchall()
-    class_size = len(learners_data)
-    
-    # Create single PDF document
-    pdf = FPDF(orientation='P', unit='mm', format='A4')
-    
-    # Process each learner
-    for position, (learner_id, learner_name, grandtotal) in enumerate(learners_data, start=1):
-        pdf.add_page()  # New page for each learner
-        pdf.set_margins(20, 10, 20)  # Uniform margins
-        
-        # ===== HEADER SECTION =====
-        pdf.image(logo_path, x=20, y=10, w=30)
-        pdf.set_font("Arial", 'B', 14)
-        pdf.cell(0, 10, school_info['name'], 0, 1, 'C')
-        pdf.set_font("Arial", size=10)
-        pdf.cell(0, 5, school_info['address'], 0, 1, 'C')
-        pdf.cell(0, 5, f"Email: {school_info['email']}", 0, 1, 'C')
-        
-        # Space after header
-        pdf.ln(8)
-        
-        # ===== LEARNER INFO SECTION =====
-        col1_width = 30
-        col2_width = 60
+    try:
+        # 1. Validate school_info dictionary
+        if not isinstance(school_info, dict) or not all(key in school_info for key in ['name', 'address', 'email', 'closing_date', 'opening_date']):
+            raise ValueError("Invalid school_info dictionary provided")
 
-        pdf.ln(3)  # Additional space before ADM NO row
+        # 2. Verify logo file exists
+        if not os.path.exists(logo_path):
+            raise FileNotFoundError(f"Logo file not found at: {logo_path}")
+
+        # 3. Get school level from file with validation
+        school_path = "D:/TONNIEGIFTED/Documents/programs/AssessmentBoy/school.text"
+        if not os.path.exists(school_path):
+            raise FileNotFoundError(f"School level file not found at: {school_path}")
         
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(col1_width, 8, "ADM NO:", 0, 0)
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(col2_width, 8, str(learner_id), 0, 0)
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(col1_width, 8, "NAME:", 0, 0)
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(0, 8, learner_name.upper(), 0, 1)
+        with open(school_path, "r") as file:
+            school = file.read().strip()
         
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(col1_width, 8, "POSITION:", 0, 0)
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(col2_width, 8, str(position), 0, 0)
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(col1_width, 8, "OUT OF:", 0, 0)
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(0, 8, str(class_size), 0, 1)
+        valid_schools = ['Lower Primary', 'Upper Primary', 'Junior School']
+        if school not in valid_schools:
+            school = 'Junior School'  # Default if invalid value
+            QMessageBox.warning(None, "Warning", f"Invalid school level detected. Defaulting to 'Junior School'")
+
+        # 4. Set school-specific values
+        if school == 'Lower Primary':
+            grand_total_out_of = 600
+            subject_out_of = 100
+        elif school == 'Upper Primary':
+            grand_total_out_of = 800
+            subject_out_of = 100
+        else:  # Junior School
+            grand_total_out_of = 900
+            subject_out_of = 100
+
+        # 5. Database connection with error handling
+        try:
+            db = mysql.connector.connect(
+                host="localhost",
+                user="root",
+                password="print",
+                database="assess"
+            )
+            cur = db.cursor()
+        except Exception as db_error:
+            raise ConnectionError(f"Database connection failed: {str(db_error)}")
+
+        # 6. Get active term with validation
+        cur.execute("SELECT term_id, selected_term, selected_year FROM term WHERE is_active=1")
+        term_data = cur.fetchone()
         
-        #getting grade name
-        cur.execute("""
-                    SELECT grade_name FROM grade WHERE grade_id=%s
-                    """,(grade_id,))
-        grade_name=cur.fetchone()[0]
+        if not term_data:
+            db.close()
+            raise ValueError("No active term found. Please set an active term first.")
         
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(col1_width, 8, "GRADE:", 0, 0)
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(col2_width, 8, f"{grade_name}", 0, 0)
-        pdf.set_font("Arial", 'B', 12)
-        pdf.cell(col1_width, 8, "TERM:", 0, 0)
-        pdf.set_font("Arial", '', 12)
-        pdf.cell(0, 8, selected_term, 0, 1)
+        term_id, selected_term, selected_year = term_data
+        term_year = f"Term {selected_term}, {selected_year}"
+
+        # 7. Get all learners with their grand totals
+        cur.execute("""SELECT l.learner_id, CONCAT(l.first,' ',l.second,' ',l.surname), g.grandtotal
+                    FROM learner l JOIN grand g ON l.learner_id=g.learner_id
+                    WHERE g.grade_id=%s AND g.term_id=%s
+                    ORDER BY g.grandtotal DESC""", 
+                    (grade_id, term_id))
         
-        pdf.ln(8)
+        learners_data = cur.fetchall()
         
-        # ===== SUBJECTS TABLE =====
-        pdf.set_font("Arial", 'B', 10)
-        col_widths = [70, 20, 20, 60]
-        headers = ["LEARNING AREA", "SCORE", "OUT OF", "COMMENT"]
+        if not learners_data:
+            db.close()
+            QMessageBox.warning(None, "No Data", "No learners found for the selected grade and term.")
+            return  # Exit gracefully if no learners found
+
+        class_size = len(learners_data)
+
+        # 8. Get grade name with validation
+        cur.execute("SELECT grade_name FROM grade WHERE grade_id=%s", (grade_id,))
+        grade_result = cur.fetchone()
         
-        for width, header in zip(col_widths, headers):
-            pdf.cell(width, 8, header, 1, 0, 'C')
-        pdf.ln()
+        if not grade_result:
+            db.close()
+            raise ValueError(f"No grade found with ID: {grade_id}")
         
-        cur.execute("""SELECT b.subject_name, s.subject_score, t.total_score, s.expectation
-                    FROM subject b 
-                    JOIN score s ON b.subject_id=s.subject_id
-                    JOIN total t ON t.subject_id=b.subject_id AND t.term_id=s.term_id
-                    WHERE s.learner_id=%s AND s.grade_id=%s AND s.term_id=%s
-                    ORDER BY b.subject_id""",
-                    (learner_id, grade_id, term_id))
+        grade_name = grade_result[0]
+
+        # 9. Create PDF document
+        pdf = FPDF(orientation='P', unit='mm', format='A4')
         
-        subjects = cur.fetchall()
-        total_score = 0
-        
-        pdf.set_font("Arial", size=9)
-        for subject in subjects:
-            name, score, max_score, exp = subject
-            total_score += score
+        for position, (learner_id, learner_name, grandtotal) in enumerate(learners_data, start=1):
+            # Validate learner data
+            if not learner_name or not isinstance(learner_name, str):
+                learner_name = "Name Not Available"
             
-            if exp == "EE": comment = "Exceeding Expectations"
-            elif exp == "ME": comment = "Meeting Expectations"
-            elif exp == "AE": comment = "Approaching Expectations"
-            else: comment = "Below Expectations"
+            try:
+                pdf.add_page()
+                pdf.set_margins(20, 10, 20)
+                
+                # Header Section with validation
+                try:
+                    pdf.image(logo_path, x=20, y=10, w=30)
+                except:
+                    pass  # Skip logo if there's an error but continue with report
+                
+                pdf.set_font("Arial", 'B', 14)
+                pdf.cell(0, 10, str(school_info.get('name', '')), 0, 1, 'C')
+                pdf.set_font("Arial", size=10)
+                pdf.cell(0, 5, str(school_info.get('address', '')), 0, 1, 'C')
+                pdf.cell(0, 5, f"Email: {str(school_info.get('email', ''))}", 0, 1, 'C')
+                pdf.ln(8)
+                
+                # Learner Info Section
+                col1_width, col2_width = 30, 60
+                pdf.ln(3)
+                
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(col1_width, 8, "ADM NO:", 0, 0)
+                pdf.set_font("Arial", '', 12)
+                pdf.cell(col2_width, 8, str(learner_id), 0, 0)
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(col1_width, 8, "NAME:", 0, 0)
+                pdf.set_font("Arial", '', 12)
+                pdf.cell(0, 8, learner_name.upper(), 0, 1)
+                
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(col1_width, 8, "POSITION:", 0, 0)
+                pdf.set_font("Arial", '', 12)
+                pdf.cell(col2_width, 8, str(position), 0, 0)
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(col1_width, 8, "OUT OF:", 0, 0)
+                pdf.set_font("Arial", '', 12)
+                pdf.cell(0, 8, str(class_size), 0, 1)
+                
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(col1_width, 8, "GRADE:", 0, 0)
+                pdf.set_font("Arial", '', 12)
+                pdf.cell(col2_width, 8, str(grade_name), 0, 0)
+                pdf.set_font("Arial", 'B', 12)
+                pdf.cell(col1_width, 8, "TERM:", 0, 0)
+                pdf.set_font("Arial", '', 12)
+                pdf.cell(0, 8, term_year, 0, 1)
+                pdf.ln(8)
+                
+                # Subjects Table
+                pdf.set_font("Arial", 'B', 10)
+                col_widths = [70, 20, 20, 60]
+                headers = ["LEARNING AREA", "SCORE", "OUT OF", "COMMENT"]
+                
+                for width, header in zip(col_widths, headers):
+                    pdf.cell(width, 8, header, 1, 0, 'C')
+                pdf.ln()
+                
+                # Get subject scores with error handling
+                try:
+                    cur.execute("""SELECT b.subject_id, b.subject_name, 
+                                MAX(s.subject_score) as score, 
+                                MAX(t.total_score) as max_score,
+                                MAX(s.expectation) as expectation
+                            FROM subject b 
+                            JOIN score s ON b.subject_id=s.subject_id
+                            JOIN total t ON t.subject_id=b.subject_id AND t.term_id=s.term_id
+                            WHERE s.learner_id=%s AND s.grade_id=%s AND s.term_id=%s
+                            GROUP BY b.subject_id, b.subject_name
+                            ORDER BY b.subject_id""",
+                            (learner_id, grade_id, term_id))
+                    
+                    subjects = cur.fetchall()
+                    total_score = 0
+                    
+                    if not subjects:
+                        pdf.set_font("Arial", size=9)
+                        pdf.cell(sum(col_widths), 8, "No subject scores available", 1, 1, 'C')
+                    else:
+                        pdf.set_font("Arial", size=9)
+                        for subject_id, name, score, max_score, exp in subjects:
+                            total_score += int(score) if str(score).isdigit() else 0
+                            
+                            name = str(name) if name else "Unknown"
+                            score = str(score) if score else "0"
+                            exp = str(exp) if exp else ""
+                            
+                            comment = {
+                                "EE": "Exceeding Expectations",
+                                "ME": "Meeting Expectations",
+                                "AE": "Approaching Expectations"
+                            }.get(exp, "Below Expectations")
+                            
+                            pdf.cell(col_widths[0], 8, name.upper(), 1)
+                            pdf.cell(col_widths[1], 8, score, 1, 0, 'C')
+                            pdf.cell(col_widths[2], 8, str(subject_out_of), 1, 0, 'C')
+                            pdf.cell(col_widths[3], 8, comment, 1, 1, 'L')
+                except Exception as query_error:
+                    pdf.set_font("Arial", size=9)
+                    pdf.cell(sum(col_widths), 8, f"Error loading subjects: {str(query_error)}", 1, 1, 'C')
+                    total_score = 0
+                
+                # Grand Total Row
+                pdf.set_font("Arial", 'B', 9)
+                pdf.cell(col_widths[0], 8, "GRAND TOTAL", 1)
+                pdf.cell(col_widths[1], 8, str(total_score), 1, 0, 'C')
+                pdf.cell(col_widths[2], 8, str(grand_total_out_of), 1, 0, 'C')
+                
+                # Expectations calculation with validation
+                try:
+                    total_score_int = int(total_score)
+                    overall_exp = (
+                        "Below Expectations" if total_score_int <= int(grand_total_out_of*0.3) else
+                        "Approaching Expectations" if total_score_int <= int(grand_total_out_of*0.5) else
+                        "Meeting Expectations" if total_score_int <= int(grand_total_out_of*0.8) else
+                        "Exceeding Expectations"
+                    )
+                except:
+                    overall_exp = "Evaluation Not Available"
+                
+                pdf.cell(col_widths[3], 8, overall_exp, 1, 1, 'L')
+                pdf.ln(8)
+                
+                # Comments Section with fallbacks
+                comments = {
+                    "Below Expectations": "Add more efforts in your academics, you can do better",
+                    "Approaching Expectations": "You can meet expectation. Add more efforts",
+                    "Meeting Expectations": "Good Work, you meet expectations well",
+                    "Exceeding Expectations": "Excellent, Keep the fire burning"
+                }.get(overall_exp, "No comment available")
+                
+                pdf.set_font("Arial", 'B', 10)
+                pdf.cell(90, 8, "CLASS TEACHER'S COMMENT:", 0, 0)
+                pdf.cell(0, 8, "OFFICIAL STAMP", 0, 1)
+                pdf.set_font("Arial", size=9)
+                pdf.multi_cell(90, 8, comments, 0, 'L')
+                
+                stamp_x, stamp_y = 110, pdf.get_y() - 16
+                pdf.rect(stamp_x, stamp_y, 60, 25)
+                pdf.ln(5)
+                
+                # Headteacher comments with fallbacks
+                head_comments = {
+                    "Below Expectations": "You can meet expectation, add efforts in your academic",
+                    "Approaching Expectations": "A fair performance, keep working hard and smart",
+                    "Meeting Expectations": "Good performance, you have the potential to exceed expectations",
+                    "Exceeding Expectations": "Keep up the good work, your performance shines like a star"
+                }.get(overall_exp, "No comment available")
+                
+                pdf.set_font("Arial", 'B', 10)
+                pdf.cell(90, 8, "HEADTEACHER'S COMMENT:", 0, 1)
+                pdf.set_font("Arial", size=9)
+                pdf.multi_cell(90, 8, head_comments, 0, 'L')
+                pdf.ln(5)
+                
+                # Parent Comments Section
+                pdf.set_font("Arial", 'B', 10)
+                pdf.cell(0, 8, "PARENT/GUARDIAN'S COMMENTS:", 0, 1)
+                pdf.set_font("Arial", size=9)
+                line_text = "_" * int((pdf.w - pdf.l_margin - pdf.r_margin) / 2.5)
+                for _ in range(3):
+                    pdf.cell(0, 8, line_text, 0, 1)
+                pdf.ln(3)
+                
+                # Footer Section
+                pdf.set_font("Arial", size=9)
+                pdf.cell(90, 5, f"CLOSING DATE: {str(school_info.get('closing_date', ''))}", 0, 0, 'L')
+                pdf.cell(0, 5, f"OPENING DATE: {str(school_info.get('opening_date', ''))}", 0, 1, 'R')
+                pdf.cell(0, 5, f"Report Sheet Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", 0, 0, 'C')
             
-            pdf.cell(col_widths[0], 8, name.upper(), 1)
-            pdf.cell(col_widths[1], 8, str(score), 1, 0, 'C')
-            pdf.cell(col_widths[2], 8, str(max_score), 1, 0, 'C')
-            pdf.cell(col_widths[3], 8, comment, 1, 1, 'L')
+            except Exception as page_error:
+                QMessageBox.warning(None, "Page Error", f"Error generating page for learner {learner_id}: {str(page_error)}")
+                continue  # Skip this learner but continue with others
+
+        # 10. Save with file dialog and proper validation
+        default_filename = f"Grade_{grade_name}_Report_Sheets_Term_{selected_term}.pdf"
+        default_dir = "D:/TONNIEGIFTED/Documents/programs/AssessmentBoy"
         
-        pdf.set_font("Arial", 'B', 9)
-        pdf.cell(col_widths[0], 8, "GRAND TOTAL", 1)
-        pdf.cell(col_widths[1], 8, str(total_score), 1, 0, 'C')
-        pdf.cell(col_widths[2], 8, "100", 1, 0, 'C')
+        file_dialog = QFileDialog()
+        file_dialog.setDefaultSuffix("pdf")
+        file_dialog.setNameFilter("PDF Files (*.pdf)")
+        file_dialog.setAcceptMode(QFileDialog.AcceptSave)
+        file_dialog.setDirectory(default_dir)
+        file_dialog.selectFile(default_filename)
         
-        if total_score <= 261: overall_exp = "Below Expectations"
-        elif total_score <= 441: overall_exp = "Approaching Expectations"
-        elif total_score <= 891: overall_exp = "Meeting Expectations"
-        else: overall_exp = "Exceeding Expectations"
-        
-        pdf.cell(col_widths[3], 8, overall_exp, 1, 1, 'L')
-        pdf.ln(8)
-        
-        # ===== COMMENTS SECTION =====
-        available_height = 297 - pdf.get_y() - 30
-        
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(90, 8, "CLASS TEACHER'S COMMENT:", 0, 0)
-        pdf.cell(0, 8, "RUBBER STAMP", 0, 1)
-        
-        pdf.set_font("Arial", size=9)
-        if "EE" in overall_exp:
-            comment = "Excellent, Keep the fire burning"
-        elif "ME" in overall_exp:
-            comment = "Good Work, you meet expectations well"
-        elif "AE" in overall_exp:
-            comment = "You can meet expectation. Add more efforts"
-        else:
-            comment = "Add more efforts in your academics, you can do better"
-        
-        pdf.multi_cell(90, 8, comment, 0, 'L')
-        
-        stamp_x = 110
-        stamp_y = pdf.get_y() - 16
-        pdf.rect(stamp_x, stamp_y, 60, 25)
-        pdf.ln(5)
-        
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(90, 8, "HEADTEACHER'S COMMENT:", 0, 1)
-        pdf.set_font("Arial", size=9)
-        
-        if "EE" in overall_exp:
-            comment = "Keep up the good work, your performance shines like a star"
-        elif "ME" in overall_exp:
-            comment = "Good performance, you have the potential to exceed expectations"
-        elif "AE" in overall_exp:
-            comment = "A fair performance, keep working hard and smart"
-        else:
-            comment = "You can meet expectation, add efforts in your academic"
-        
-        pdf.multi_cell(90, 8, comment, 0, 'L')
-        pdf.ln(5)
-        
-        # ===== UPDATED: Parent Comments =====
-        pdf.set_font("Arial", 'B', 10)
-        pdf.cell(0, 8, "PARENT/GUARDIAN'S COMMENTS:", 0, 1)
-        pdf.set_font("Arial", size=9)
-        line_width = pdf.w - pdf.l_margin - pdf.r_margin
-        line_text = "_" * int(line_width / 2.5)
-        for _ in range(3):
-            pdf.cell(0, 8, line_text, 0, 1)
-        pdf.ln(3)
-        
-        # ===== FOOTER SECTION =====
-        pdf.set_font("Arial", size=9)
-        pdf.cell(90, 5, f"CLOSING DATE: {school_info['closing_date']}", 0, 0, 'L')
-        pdf.cell(0, 5, f"OPENING DATE: {school_info['opening_date']}", 0, 1, 'R')
-        pdf.cell(0, 5, f"Report Sheet Generated on: {datetime.now().strftime('%Y-%m-%d')}", 0, 0, 'C')
-    
-    # Output single file after all learners processed
-    filename = f"Grade_{grade_name}_Reports Sheets.pdf"
-    pdf.output(filename)
-    # print(f"Generated combined report for {len(learners_data)} learners in {filename}")
-    
-    cur.close()
-    db.close()
+        if file_dialog.exec_():
+            save_path = file_dialog.selectedFiles()[0]
+            
+            if not save_path:
+                QMessageBox.warning(None, "Warning", "No save path selected")
+                return
+            
+            # Ensure PDF extension
+            if not save_path.lower().endswith('.pdf'):
+                save_path += '.pdf'
+            
+            # Check if file exists and prompt for overwrite
+            if os.path.exists(save_path):
+                reply = QMessageBox.question(
+                    None,
+                    "File Exists", 
+                    f"'{os.path.basename(save_path)}' already exists.\nOverwrite?", 
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                if reply != QMessageBox.Yes:
+                    return  # User chose not to overwrite
+            
+            try:
+                pdf.output(save_path)
+                QMessageBox.information(
+                    None,
+                    "Success",
+                    f"Assessment Reports successfully"
+                )
+            except PermissionError:
+                QMessageBox.critical(
+                    None,
+                    "Error",
+                    "Permission denied. Please close the file if it's open elsewhere."
+                )
+            except Exception as save_error:
+                QMessageBox.critical(
+                    None,
+                    "Error",
+                    f"Failed to save file: {str(save_error)}"
+                )
+
+    except Exception as e:
+        QMessageBox.critical(None, "Error", f"An error occurred:\n{str(e)}")
+    finally:
+        # Clean up database resources
+        try:
+            if 'cur' in locals():
+                cur.close()
+            if 'db' in locals():
+                db.close()
+        except:
+            pass  # Ignore any errors during cleanup
+
 #     # Step 4: Launch app
 window = QApplication(sys.argv)
 screen = mainwin()
